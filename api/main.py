@@ -23,6 +23,13 @@ ANSWER_MODE = os.getenv("ANSWER_MODE", "breve")  # "breve" | "detallado" | "paso
 # Admin
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "dev")
 
+# ========= Conversación en memoria =========
+# Guarda el historial de mensajes por `client_id` únicamente mientras el servidor
+# esté en ejecución. Al cerrar un chat se eliminará su historial sin afectar
+# los documentos indexados.
+SESSION_CONTEXTS: dict[str, list[dict[str, str]]] = {}
+MAX_SESSION_MESSAGES = int(os.getenv("MAX_SESSION_MESSAGES", "20"))
+
 # ========= App =========
 app = FastAPI(title="Local AI API (Ollama + RAG)")
 
@@ -133,9 +140,16 @@ def delete_everything(x_admin_token: str = Header(None)):
     return {"ok": True, "deleted": "all"}
 
 
+@app.delete("/chat/context")
+def clear_chat_context(client_id: str):
+    """Elimina el contexto conversacional guardado para un `client_id`."""
+    SESSION_CONTEXTS.pop(client_id, None)
+    return {"ok": True, "cleared_client": client_id}
+
+
 @app.post("/chat")
 async def chat(body: ChatIn):
-    """Chat con Ollama. Si viene client_id, hace RAG (busca contexto) y cita [n]."""
+    """Chat con Ollama. Si viene client_id, hace RAG y mantiene historial en memoria."""
     model = body.model or DEFAULT_MODEL
 
     # 1) Recuperación de contexto por cliente (opcional)
@@ -152,18 +166,26 @@ async def chat(body: ChatIn):
     modo = body.mode or ANSWER_MODE
     prompt = build_prompt(body.message, context, modo=modo)
 
+    # 3) Historial conversacional (memoria temporal)
+    session_msgs = []
+    if body.client_id:
+        session_msgs = SESSION_CONTEXTS.setdefault(body.client_id, [])
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Eres un asistente en español. Sé preciso, educado y evita cualquier cadena de pensamiento "
+                "u otros razonamientos internos. Si no hay evidencia suficiente en el contexto, dilo sin inventar."
+            ),
+        },
+        *session_msgs,
+        {"role": "user", "content": prompt},
+    ]
+
     payload = {
         "model": model,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "Eres un asistente en español. Sé preciso, educado y evita cualquier cadena de pensamiento "
-                    "u otros razonamientos internos. Si no hay evidencia suficiente en el contexto, dilo sin inventar."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ],
+        "messages": messages,
         "stream": False,
         "options": {
             "temperature": 0.2,
@@ -183,6 +205,12 @@ async def chat(body: ChatIn):
     content = (data.get("message") or {}).get("content")
     if not content:
         raise HTTPException(status_code=500, detail="Respuesta vacía del modelo")
+
+    # 4) Guardar historial
+    if body.client_id:
+        session_msgs.append({"role": "user", "content": prompt})
+        session_msgs.append({"role": "assistant", "content": content})
+        SESSION_CONTEXTS[body.client_id] = session_msgs[-MAX_SESSION_MESSAGES:]
 
     return {
         "model": model,
