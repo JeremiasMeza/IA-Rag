@@ -5,6 +5,8 @@ export default function ChatBox({ model, clientId }) {
   const [msg, setMsg] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  // ID de conversación efímero; solo vive en memoria del componente
+  const [conversationId] = useState(() => crypto.randomUUID());
   const endRef = useRef(null);
 
   useEffect(() => {
@@ -18,7 +20,12 @@ export default function ChatBox({ model, clientId }) {
     setMessages((prev) => [...prev, { sender: "user", text: userText }]);
     setLoading(true);
     try {
-      const data = await chat({ message: userText, model, client_id: clientId });
+      const data = await chat({
+        message: userText,
+        model,
+        client_id: clientId,
+        conversation_id: conversationId,
+      });
       let meta = "";
       if (data.citations?.length) {
         meta = `Contexto usado: ${data.citations

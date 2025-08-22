@@ -15,10 +15,17 @@ async function _checkResponse(res) {
   throw new Error(msg);
 }
 
-export async function chat({ message, model, client_id, mode } = {}) {
+export async function chat({
+  message,
+  model,
+  client_id,
+  conversation_id,
+  mode,
+} = {}) {
   const body = { message };
   if (model) body.model = model;
   if (client_id) body.client_id = client_id;
+  if (conversation_id) body.conversation_id = conversation_id;
   if (mode) body.mode = mode;
 
   const r = await fetch(`${API}/chat`, {
