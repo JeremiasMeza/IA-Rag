@@ -13,3 +13,8 @@ Quick start
    .\.venv\Scripts\uvicorn.exe main:app --reload --host 0.0.0.0 --port 8000
 
 4. Frontend expects VITE_API_URL pointing to the backend (default http://127.0.0.1:8000)
+
+5. El historial de chat se guarda en memoria por `client_id` y puede limpiarse sin
+   afectar los documentos indexados:
+
+   `curl -X DELETE "http://localhost:8000/chat/context?client_id=CLIENTE"`
