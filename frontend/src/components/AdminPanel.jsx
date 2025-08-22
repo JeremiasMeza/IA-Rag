@@ -8,7 +8,7 @@ export default function AdminPanel({ clientId }) {
   const wipeClient = async () => {
     setMsg("");
     try {
-      const res = await deleteByClient({ client_id: clientId, adminToken: token });
+      await deleteByClient({ client_id: clientId, adminToken: token });
       setMsg(`OK: borrado cliente "${clientId}"`);
     } catch (e) {
       setMsg("Error: " + e.message);
@@ -18,7 +18,7 @@ export default function AdminPanel({ clientId }) {
   const wipeAll = async () => {
     setMsg("");
     try {
-      const res = await deleteAll({ adminToken: token });
+      await deleteAll({ adminToken: token });
       setMsg("OK: reset total");
     } catch (e) {
       setMsg("Error: " + e.message);
