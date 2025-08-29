@@ -6,6 +6,7 @@ from fastapi import FastAPI, UploadFile, File, Form, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from inventory import router as inventory_router 
 
 # RAG helpers (asegúrate de tener rag.py con estas funciones)
 from rag import add_document, query_relevant, UPLOAD_DIR
@@ -223,3 +224,11 @@ async def chat(body: ChatIn):
             {"source": c["meta"]["source"], "chunk": c["meta"]["chunk"]} for c in context
         ],
     }
+app.include_router(inventory_router, prefix="/inventory")  
+from models import Base
+from db import engine
+
+@app.on_event("startup")
+async def on_startup():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
