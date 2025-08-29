@@ -66,3 +66,34 @@ export async function deleteAll({ adminToken }) {
   });
   return _checkResponse(r);
 }
+
+// ===== Inventario =====
+export async function listProducts() {
+  const r = await fetch(`${API}/inventory`);
+  return _checkResponse(r);
+}
+
+export async function createProduct(body) {
+  const r = await fetch(`${API}/inventory`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return _checkResponse(r);
+}
+
+export async function deleteProduct(id) {
+  const r = await fetch(`${API}/inventory/${id}`, {
+    method: "DELETE",
+  });
+  return _checkResponse(r);
+}
+
+export async function updateProduct(id, body) {
+  const r = await fetch(`${API}/inventory/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return _checkResponse(r);
+}
