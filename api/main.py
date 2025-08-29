@@ -2,11 +2,24 @@
 import os
 import httpx
 import traceback
-from fastapi import FastAPI, UploadFile, File, Form, Header, HTTPException
+from fastapi import (
+    FastAPI,
+    UploadFile,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Depends,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from inventory import router as inventory_router 
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+
+from db import get_session
+from inventory import router as inventory_router
+from models import Product
 
 # RAG helpers (asegúrate de tener rag.py con estas funciones)
 from rag import add_document, query_relevant, UPLOAD_DIR
@@ -55,8 +68,13 @@ class ChatIn(BaseModel):
 
 
 # ========= Utilidades =========
-def build_prompt(user_msg: str, ctx: list[dict], modo: str = "breve") -> str:
-    """Plantilla de prompt con citas [n] en español y sin mostrar cadenas de pensamiento."""
+def build_prompt(
+    user_msg: str,
+    ctx: list[dict],
+    modo: str = "breve",
+    inventario: str | None = None,
+) -> str:
+    """Plantilla de prompt con citas [n] e inventario en español."""
     cited = "\n".join([f"[{i+1}] {c['text']}" for i, c in enumerate(ctx)])
 
     if modo == "breve":
@@ -66,14 +84,17 @@ def build_prompt(user_msg: str, ctx: list[dict], modo: str = "breve") -> str:
     else:
         estilo = "Primero un resumen breve y luego detalles en viñetas."
 
+    inv_text = f"\n\nInventario disponible:\n{inventario}" if inventario else ""
+
     return (
         "Responde SIEMPRE en español. No muestres razonamientos internos, ni etiquetas "
         "<think>, ni cadenas de pensamiento. Si el contexto no es suficiente, dilo "
-        "claramente y evita inventar.\n"
+        "claramente y evita inventar. Cuando hables de productos, usa solo sus nombres "
+        "y cantidades sin mostrar nombres de columnas ni parámetros.\n"
         f"{estilo}\n\n"
         f"Usuario: {user_msg}\n\n"
         "Contexto (si hubiera):\n"
-        f"{cited if ctx else '(sin contexto)'}"
+        f"{cited if ctx else '(sin contexto)'}" + inv_text
     )
 
 
@@ -151,9 +172,8 @@ def clear_chat_context(conversation_id: str):
 
 
 @app.post("/chat")
-async def chat(body: ChatIn):
-    """Chat con Ollama. Si viene client_id, hace RAG; si viene conversation_id,
-    mantiene historial en memoria."""
+async def chat(body: ChatIn, session: AsyncSession = Depends(get_session)):
+    """Chat con Ollama. Recupera contexto RAG e información de inventario."""
     model = body.model or DEFAULT_MODEL
 
     # 1) Recuperación de contexto por cliente (opcional)
@@ -161,14 +181,29 @@ async def chat(body: ChatIn):
     if body.client_id:
         try:
             context = query_relevant(body.message, body.client_id, top_k=TOP_K)
-        except Exception as e:
+        except Exception:
             context = []
             print("Error buscando contexto for client_id=", body.client_id)
             print(traceback.format_exc())
 
+    # 1b) Inventario completo para consultas
+    inventory_lines = []
+    try:
+        result = await session.execute(select(Product))
+        products = result.scalars().all()
+        for p in products:
+            inventory_lines.append(f"{p.name}: {p.quantity} unidades")
+    except Exception:
+        inventory_lines = []
+
     # 2) Prompt y opciones del modelo
     modo = body.mode or ANSWER_MODE
-    prompt = build_prompt(body.message, context, modo=modo)
+    prompt = build_prompt(
+        body.message,
+        context,
+        modo=modo,
+        inventario="\n".join(inventory_lines),
+    )
 
     # 3) Historial conversacional (memoria temporal)
     session_msgs = []
