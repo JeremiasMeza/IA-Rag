@@ -7,9 +7,13 @@ export default function InventoryDashboard() {
     name: "",
     category: "",
     quantity: 0,
+
     unit_price: "",
     entry_date: "",
     description: "",
+
+    entry_date: "",
+
   });
 
   const load = async () => {
@@ -27,6 +31,7 @@ export default function InventoryDashboard() {
 
   const submit = async () => {
     try {
+
       await createProduct({
         ...form,
         quantity: Number(form.quantity),
@@ -40,6 +45,10 @@ export default function InventoryDashboard() {
         entry_date: "",
         description: "",
       });
+
+      await createProduct({ ...form, quantity: Number(form.quantity) });
+      setForm({ name: "", category: "", quantity: 0, entry_date: "" });
+
       load();
     } catch (e) {
       alert(e.message);
@@ -57,6 +66,9 @@ export default function InventoryDashboard() {
       <div className="p-4 bg-white rounded border space-y-2">
         <h2 className="font-semibold">Nuevo producto</h2>
         <div className="grid sm:grid-cols-5 gap-2">
+
+        <div className="grid sm:grid-cols-4 gap-2">
+
           <input
             className="border p-2 rounded"
             placeholder="Nombre"
@@ -77,6 +89,7 @@ export default function InventoryDashboard() {
             onChange={(e) => setForm({ ...form, quantity: e.target.value })}
           />
           <input
+
             type="number"
             step="0.01"
             className="border p-2 rounded"
@@ -87,18 +100,21 @@ export default function InventoryDashboard() {
             }
           />
           <input
+
             type="date"
             className="border p-2 rounded"
             value={form.entry_date}
             onChange={(e) => setForm({ ...form, entry_date: e.target.value })}
           />
         </div>
+
         <textarea
           className="border p-2 rounded w-full mt-2"
           placeholder="Descripción (opcional)"
           value={form.description}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
         />
+
         <button
           onClick={submit}
           className="mt-2 px-4 py-2 bg-black text-white rounded"
@@ -115,9 +131,11 @@ export default function InventoryDashboard() {
               <th className="border-b p-2">Nombre</th>
               <th className="border-b p-2">Categoría</th>
               <th className="border-b p-2">Cantidad</th>
+
               <th className="border-b p-2">Precio</th>
               <th className="border-b p-2">Ingreso</th>
               <th className="border-b p-2">Descripción</th>
+
               <th></th>
             </tr>
           </thead>
@@ -127,11 +145,13 @@ export default function InventoryDashboard() {
                 <td className="border-b p-2">{p.name}</td>
                 <td className="border-b p-2">{p.category}</td>
                 <td className="border-b p-2">{p.quantity}</td>
+
                 <td className="border-b p-2">
                   {p.unit_price != null ? p.unit_price.toFixed(2) : "-"}
                 </td>
                 <td className="border-b p-2">{p.entry_date}</td>
                 <td className="border-b p-2">{p.description || "-"}</td>
+
                 <td className="border-b p-2 text-right">
                   <button
                     onClick={() => remove(p.id)}
