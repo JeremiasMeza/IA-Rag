@@ -1,3 +1,4 @@
+
 // API helper para el frontend
 const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
@@ -15,85 +16,25 @@ async function _checkResponse(res) {
   throw new Error(msg);
 }
 
-export async function chat({
-  message,
-  model,
-  client_id,
-  conversation_id,
-  mode,
-} = {}) {
-  const body = { message };
+export async function chat({ message, model, session_id } = {}) {
+  const body = { message, session_id };
   if (model) body.model = model;
-  if (client_id) body.client_id = client_id;
-  if (conversation_id) body.conversation_id = conversation_id;
-  if (mode) body.mode = mode;
-
   const r = await fetch(`${API}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-
   return _checkResponse(r);
 }
 
-export async function uploadDoc({ file, client_id }) {
+export async function uploadPdf({ file, session_id }) {
   if (!file) throw new Error("No file provided");
   const fd = new FormData();
-  fd.append("client_id", client_id || "default");
+  fd.append("session_id", session_id);
   fd.append("file", file, file.name);
-
-  const r = await fetch(`${API}/documents`, {
+  const r = await fetch(`${API}/upload_pdf`, {
     method: "POST",
     body: fd,
-  });
-
-  return _checkResponse(r);
-}
-
-export async function deleteByClient({ client_id, adminToken }) {
-  const r = await fetch(`${API}/documents?client_id=${encodeURIComponent(client_id)}`, {
-    method: "DELETE",
-    headers: { "x-admin-token": adminToken ?? "" },
-  });
-  return _checkResponse(r);
-}
-
-export async function deleteAll({ adminToken }) {
-  const r = await fetch(`${API}/documents/all`, {
-    method: "DELETE",
-    headers: { "x-admin-token": adminToken ?? "" },
-  });
-  return _checkResponse(r);
-}
-
-// ===== Inventario =====
-export async function listProducts() {
-  const r = await fetch(`${API}/inventory`);
-  return _checkResponse(r);
-}
-
-export async function createProduct(body) {
-  const r = await fetch(`${API}/inventory`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return _checkResponse(r);
-}
-
-export async function deleteProduct(id) {
-  const r = await fetch(`${API}/inventory/${id}`, {
-    method: "DELETE",
-  });
-  return _checkResponse(r);
-}
-
-export async function updateProduct(id, body) {
-  const r = await fetch(`${API}/inventory/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
   });
   return _checkResponse(r);
 }

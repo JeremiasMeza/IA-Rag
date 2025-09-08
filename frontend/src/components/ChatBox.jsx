@@ -1,12 +1,12 @@
+
 import { useEffect, useRef, useState } from "react";
 import { chat } from "../lib/api";
 
-export default function ChatBox({ model, clientId }) {
+export default function ChatBox({ model, sessionId }) {
   const [msg, setMsg] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-  // ID de conversación efímero; solo vive en memoria del componente
-  const [conversationId] = useState(() => crypto.randomUUID());
+  // ID de sesión efímero; solo vive en memoria del componente
   const endRef = useRef(null);
 
   useEffect(() => {
@@ -23,20 +23,11 @@ export default function ChatBox({ model, clientId }) {
       const data = await chat({
         message: userText,
         model,
-        client_id: clientId,
-        conversation_id: conversationId,
+        session_id: sessionId,
       });
-      let meta = "";
-      if (data.citations?.length) {
-        meta = `Contexto usado: ${data.citations
-          .map((c) => `${c.source}#${c.chunk}`)
-          .join(", ")}`;
-      } else if (data.used_context === 0 && clientId) {
-        meta = "Sin contexto (no hay docs indexados para este cliente).";
-      }
       setMessages((prev) => [
         ...prev,
-        { sender: "bot", text: data.reply || JSON.stringify(data), meta },
+        { sender: "bot", text: data.reply || JSON.stringify(data) },
       ]);
     } catch (e) {
       setMessages((prev) => [
