@@ -1,3 +1,4 @@
+# Archivo eliminado: funcionalidad migrada o eliminada
 # api/inventory.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession

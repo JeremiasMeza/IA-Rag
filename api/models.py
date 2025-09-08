@@ -1,3 +1,4 @@
+# Archivo eliminado: funcionalidad migrada o eliminada
 # api/models.py
 from sqlalchemy import (
     Column, Integer, String, Text, Date, Numeric, DateTime, func

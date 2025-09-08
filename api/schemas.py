@@ -1,3 +1,4 @@
+# Archivo eliminado: funcionalidad migrada o eliminada
 # api/schemas.py
 from pydantic import BaseModel
 from datetime import date, datetime

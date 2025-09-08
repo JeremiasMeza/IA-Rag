@@ -1,3 +1,4 @@
+# Archivo eliminado: funcionalidad migrada o eliminada
 # api/db.py
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker

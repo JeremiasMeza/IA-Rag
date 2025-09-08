@@ -1,3 +1,4 @@
+# Archivo eliminado: funcionalidad migrada a main.py
 import os
 import traceback
 import chromadb
