@@ -14,6 +14,13 @@ load_dotenv()
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 DEFAULT_MODEL = os.getenv("MODEL_NAME", "llama3.1:8b")
 
+SYSTEM_PROMPT = (
+    "Eres un asistente conversacional. Responde siempre en español, de forma breve y clara. "
+    "No muestres tu razonamiento interno ni incluyas etiquetas como <think> o similares. "
+    "Limítate a ofrecer la respuesta final en texto plano usando únicamente el texto proporcionado. "
+    "Si la respuesta no está en el texto, responde: 'No encontrado en el texto.'"
+)
+
 app = FastAPI(title="Chat PDF + Ollama")
 app.add_middleware(
     CORSMiddleware,
@@ -73,18 +80,14 @@ async def chat(body: ChatIn):
     if not context:
         context = "No encontrado en el texto."
     prompt = (
-        "Responde solo con el dato solicitado usando únicamente la siguiente información extraída de un PDF. "
-        "No repitas la pregunta, no des contexto, explicaciones ni razonamientos. "
-        "Si la respuesta no está en el texto, responde: 'No encontrado en el texto'.\n\n"
-        f"Texto extraído:\n{context}\n\nPregunta: {body.message}"
+        "Usa exclusivamente la siguiente información extraída de un PDF para responder. "
+        "Si la respuesta no está en el texto, responde: 'No encontrado en el texto.'\n\n"
+        f"Texto proporcionado:\n{context}\n\nPregunta: {body.message}"
     )
     payload = {
         "model": body.model or DEFAULT_MODEL,
         "messages": [
-            {
-                "role": "system",
-                "content": "Responde solo con el dato solicitado, sin explicaciones, razonamientos, contexto ni repeticiones. Si no está en el texto, responde: 'No encontrado en el texto'."
-            },
+            {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt}
         ],
         "stream": False,
