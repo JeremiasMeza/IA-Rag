@@ -5,7 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import httpx
-from pypdf import PdfReader
+import shutil
+import uuid
+from . import rag
 
 load_dotenv()
 
@@ -21,9 +23,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Guardar textos PDF en memoria por sesión
-PDF_CONTEXTS = {}
-
 class ChatIn(BaseModel):
     message: str
     model: str | None = None
@@ -37,27 +36,42 @@ def root():
 def health():
     return {"status": "ok"}
 
+
 @app.post("/upload_pdf")
 async def upload_pdf(session_id: str = Form(...), file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Solo se aceptan archivos PDF")
-    import io
-    text = ""
+    # Guardar el archivo PDF en disco
+    upload_dir = rag.UPLOAD_DIR
+    os.makedirs(upload_dir, exist_ok=True)
+    unique_name = f"{session_id}_{uuid.uuid4().hex}.pdf"
+    file_path = os.path.join(upload_dir, unique_name)
     try:
-        file_bytes = await file.read()
-        pdf_file = io.BytesIO(file_bytes)
-        reader = PdfReader(pdf_file)
-        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        with open(file_path, "wb") as f:
+            shutil.copyfileobj(file.file, f)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error leyendo PDF: {e}")
-    PDF_CONTEXTS[session_id] = text
-    return {"ok": True, "session_id": session_id, "chars": len(text)}
+        raise HTTPException(status_code=500, detail=f"Error guardando PDF: {e}")
+    # Procesar y almacenar los embeddings en la base vectorial
+    try:
+        num_chunks = rag.add_document(file_path, session_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error procesando PDF: {e}")
+    return {"ok": True, "session_id": session_id, "chunks": num_chunks}
+
 
 @app.post("/chat")
 async def chat(body: ChatIn):
-    context = PDF_CONTEXTS.get(body.session_id, "")
+    # Buscar los fragmentos más relevantes usando RAG
+    try:
+        relevant_chunks = rag.query_relevant(body.message, body.session_id, top_k=4)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error consultando contexto: {e}")
+    if not relevant_chunks:
+        context = ""
+    else:
+        context = "\n".join([chunk["text"] for chunk in relevant_chunks])
     if not context:
-        raise HTTPException(status_code=400, detail="No hay PDF cargado para esta sesión")
+        context = "No encontrado en el texto."
     prompt = (
         "Responde solo con el dato solicitado usando únicamente la siguiente información extraída de un PDF. "
         "No repitas la pregunta, no des contexto, explicaciones ni razonamientos. "
@@ -67,9 +81,14 @@ async def chat(body: ChatIn):
     payload = {
         "model": body.model or DEFAULT_MODEL,
         "messages": [
+            {
+                "role": "system",
+                "content": "Responde solo con el dato solicitado, sin explicaciones, razonamientos, contexto ni repeticiones. Si no está en el texto, responde: 'No encontrado en el texto'."
+            },
             {"role": "user", "content": prompt}
         ],
-        "stream": False
+        "stream": False,
+        "raw": True
     }
     try:
         async with httpx.AsyncClient(timeout=120) as client:
@@ -78,7 +97,43 @@ async def chat(body: ChatIn):
             data = r.json()
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Error hablando con Ollama: {e}")
-    content = (data.get("message") or {}).get("content")
+    content = (data.get("message") or {}).get("content", "")
     if not content:
         raise HTTPException(status_code=500, detail="Respuesta vacía del modelo")
-    return content
+    import re
+    # Eliminar bloques <think>...</think> y etiquetas html
+    content = re.sub(r'<think>[\s\S]*?</think>', '', content, flags=re.IGNORECASE)
+    content = re.sub(r'<[^>]+>', '', content)
+    # Eliminar comillas dobles o simples al inicio y final, y escapes de barra invertida
+    content = content.strip().replace('\\n', '\n').replace('\\"', '"').replace('\\', '')
+    content = content.strip('"').strip("'")
+    # Si la respuesta es JSON, extraer solo el valor si es posible
+    try:
+        import json
+        parsed = json.loads(content)
+        if isinstance(parsed, dict) and 'respuesta' in parsed:
+            content = parsed['respuesta']
+        elif isinstance(parsed, str):
+            content = parsed
+    except Exception:
+        pass
+    # Eliminar líneas vacías y espacios extra
+    lines = [line.strip() for line in content.splitlines() if line.strip()]
+    # Buscar la última línea que no sea razonamiento ni instrucción ni comillas
+    respuesta = None
+    for line in reversed(lines):
+        if not re.search(r'(razonamiento|instrucci[oó]n|think|user sent|they want|respuesta es|so the correct answer|let me check|the answer should|simple response|extra text|confirm|testing|spanish|should be|no encontrado en el texto)', line, re.IGNORECASE) and not line.startswith('"') and not line.endswith('"'):
+            respuesta = line
+            break
+    # Si no se encontró, buscar si hay "No encontrado en el texto"
+    if not respuesta:
+        for line in lines:
+            if 'no encontrado en el texto' in line.lower():
+                respuesta = 'No encontrado en el texto.'
+                break
+    # Si sigue sin respuesta, devolver la línea más corta (usualmente la respuesta directa)
+    if not respuesta and lines:
+        respuesta = min(lines, key=len).strip('"').strip("'")
+    if not respuesta:
+        respuesta = 'No encontrado en el texto.'
+    return respuesta.strip()
