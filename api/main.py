@@ -1,19 +1,22 @@
 
+
+
+
+
 import os
+import uuid
+import shutil
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import httpx
-import shutil
-import uuid
-from . import rag
+import rag
 
 load_dotenv()
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 DEFAULT_MODEL = os.getenv("MODEL_NAME", "llama3.1:8b")
-
 SYSTEM_PROMPT = (
     "Eres un asistente conversacional. Responde siempre en español, de forma breve y clara. "
     "No muestres tu razonamiento interno ni incluyas etiquetas como <think> o similares. "
@@ -45,10 +48,10 @@ def health():
 
 
 @app.post("/upload_pdf")
-async def upload_pdf(session_id: str = Form(...), file: UploadFile = File(...)):
+async def upload_pdf(session_id: str = Form(None), file: UploadFile = File(...)):
+    session_id = session_id or "global"
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Solo se aceptan archivos PDF")
-    # Guardar el archivo PDF en disco
     upload_dir = rag.UPLOAD_DIR
     os.makedirs(upload_dir, exist_ok=True)
     unique_name = f"{session_id}_{uuid.uuid4().hex}.pdf"
@@ -58,7 +61,6 @@ async def upload_pdf(session_id: str = Form(...), file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, f)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error guardando PDF: {e}")
-    # Procesar y almacenar los embeddings en la base vectorial
     try:
         num_chunks = rag.add_document(file_path, session_id)
     except Exception as e:
@@ -66,17 +68,16 @@ async def upload_pdf(session_id: str = Form(...), file: UploadFile = File(...)):
     return {"ok": True, "session_id": session_id, "chunks": num_chunks}
 
 
-@app.post("/chat")
+from fastapi.responses import PlainTextResponse
+
+@app.post("/chat", response_class=PlainTextResponse)
 async def chat(body: ChatIn):
-    # Buscar los fragmentos más relevantes usando RAG
+    session_id = getattr(body, "session_id", None) or "global"
     try:
-        relevant_chunks = rag.query_relevant(body.message, body.session_id, top_k=4)
+        relevant_chunks = rag.query_relevant(body.message, session_id, top_k=4)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error consultando contexto: {e}")
-    if not relevant_chunks:
-        context = ""
-    else:
-        context = "\n".join([chunk["text"] for chunk in relevant_chunks])
+    context = "\n".join([c["text"] for c in relevant_chunks]) if relevant_chunks else ""
     if not context:
         context = "No encontrado en el texto."
     prompt = (
@@ -104,13 +105,13 @@ async def chat(body: ChatIn):
     if not content:
         raise HTTPException(status_code=500, detail="Respuesta vacía del modelo")
     import re
-    # Eliminar bloques <think>...</think> y etiquetas html
     content = re.sub(r'<think>[\s\S]*?</think>', '', content, flags=re.IGNORECASE)
     content = re.sub(r'<[^>]+>', '', content)
-    # Eliminar comillas dobles o simples al inicio y final, y escapes de barra invertida
+    lines = [line.strip() for line in content.splitlines() if line.strip()]
+    if lines:
+        content = lines[-1]
     content = content.strip().replace('\\n', '\n').replace('\\"', '"').replace('\\', '')
     content = content.strip('"').strip("'")
-    # Si la respuesta es JSON, extraer solo el valor si es posible
     try:
         import json
         parsed = json.loads(content)
@@ -120,21 +121,22 @@ async def chat(body: ChatIn):
             content = parsed
     except Exception:
         pass
-    # Eliminar líneas vacías y espacios extra
     lines = [line.strip() for line in content.splitlines() if line.strip()]
-    # Buscar la última línea que no sea razonamiento ni instrucción ni comillas
     respuesta = None
-    for line in reversed(lines):
-        if not re.search(r'(razonamiento|instrucci[oó]n|think|user sent|they want|respuesta es|so the correct answer|let me check|the answer should|simple response|extra text|confirm|testing|spanish|should be|no encontrado en el texto)', line, re.IGNORECASE) and not line.startswith('"') and not line.endswith('"'):
+    for line in lines:
+        if (
+            len(line) <= 200 and
+            not re.search(r'(razonamiento|instrucci[oó]n|think|user sent|they want|respuesta es|so the correct answer|let me check|the answer should|simple response|extra text|confirm|testing|spanish|should be|no encontrado en el texto|okay|spanish for|just the word|without any explanation|the user might|i should reply|starting a conversation|make sure not to add anything else)', line, re.IGNORECASE)
+            and not line.startswith('"') and not line.endswith('"')
+            and not line.startswith("'") and not line.endswith("'")
+        ):
             respuesta = line
             break
-    # Si no se encontró, buscar si hay "No encontrado en el texto"
     if not respuesta:
         for line in lines:
             if 'no encontrado en el texto' in line.lower():
                 respuesta = 'No encontrado en el texto.'
                 break
-    # Si sigue sin respuesta, devolver la línea más corta (usualmente la respuesta directa)
     if not respuesta and lines:
         respuesta = min(lines, key=len).strip('"').strip("'")
     if not respuesta:
