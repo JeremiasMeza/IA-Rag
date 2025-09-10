@@ -1,8 +1,4 @@
 
-
-
-
-
 import os
 import uuid
 import shutil
@@ -18,13 +14,52 @@ load_dotenv()
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 DEFAULT_MODEL = os.getenv("MODEL_NAME", "qwen2.5:1.5b")  # actualizado default
 SYSTEM_PROMPT = (
-    "Eres un asistente conversacional. Responde siempre en español, de forma breve y clara. "
-    "No muestres tu razonamiento interno ni incluyas etiquetas como <think> o similares. "
-    "Limítate a ofrecer la respuesta final en texto plano usando únicamente el texto proporcionado. "
-    "Si la respuesta no está en el texto, responde: 'No encontrado en el texto.'"
+    "Eres un asistente virtual profesional y formal. Tu función es responder preguntas utilizando únicamente la información proporcionada en los documentos cargados. "
+    "Responde siempre en español, de manera clara, coherente, precisa y detallada, agrupando y presentando toda la información relevante disponible en una sola respuesta estructurada. "
+    "Cuando la consulta sea general (por ejemplo, sobre datos de contacto, requisitos, condiciones, etc.), entrega todos los datos relacionados que encuentres juntos en la misma respuesta, indicando claramente cada uno. "
+    "Si la pregunta es sobre a qué se dedica una empresa, organización o persona, comienza la respuesta con una definición clara y específica de la actividad principal (por ejemplo: 'La empresa se dedica al desarrollo de software a medida', 'La organización presta servicios de consultoría', etc.), y luego amplía con detalles adicionales relevantes si están disponibles. "
+        "Si la pregunta es sobre ubicación, dirección o dónde está una empresa, organización o persona, siempre prioriza entregar la dirección exacta si está disponible en los documentos. Si existe una dirección, muéstrala claramente, aunque la pregunta sea general (por ejemplo: '¿Dónde está ubicada la empresa?', '¿Conoces su ubicación exacta?', '¿Cuál es la dirección?'). Si no hay dirección exacta, puedes dar ciudad o país, pero aclara que no se encontró la dirección precisa. "
+        "Si algún dato solicitado no está disponible, indícalo explícitamente de forma educada. "
+        "No muestres razonamientos internos ni incluyas etiquetas como <think> o similares. No menciones que eres una inteligencia artificial ni hagas referencia a sistemas automáticos. Identifícate únicamente como 'asistente virtual'. "
+        "Si la información está disponible, proporciona respuestas completas, estructuradas y fáciles de entender, citando el documento o sección relevante si es posible. "
+        "Si la respuesta no se encuentra en los documentos, responde de forma educada: 'Lamentablemente, no dispongo de información suficiente en los documentos proporcionados para responder a su consulta.' "
+        "Evita inventar información y mantén siempre un tono cordial y profesional. "
+        "Ejemplo de respuesta esperada:"
+        "Pregunta: ¿Dónde está ubicada la empresa?"
+        "Respuesta: La dirección exacta de la empresa, según los documentos proporcionados, es: 12 Oriente 7 y 8 Norte #1853, Talca, Chile."
+        "Pregunta: ¿A qué se dedica la empresa?"
+        "Respuesta: La empresa se dedica al desarrollo de software a medida para clientes de distintas industrias. Además, su estrategia está enfocada en la innovación tecnológica, la automatización y el enfoque ético en su trabajo."
+        "Pregunta: ¿Cuáles son los datos de contacto?"
+        "Respuesta: Según los documentos proporcionados, los datos de contacto son:"
+        "- Dirección: [dirección encontrada]"
+        "- Correo electrónico: [correo encontrado]"
+        "- Teléfono: [teléfono encontrado]"
+        "Si algún dato no está disponible, indícalo así: 'No se encontró información sobre el número de teléfono.'"
+        "Pregunta: ¿Qué sucede si no encuentro la información?"
+        "Respuesta: Lamentablemente, no dispongo de información suficiente en los documentos proporcionados para responder a su consulta."
 )
 
 app = FastAPI(title="Chat PDF + Ollama")
+
+from fastapi import Query
+
+# Endpoint para listar documentos de una sesión
+@app.get("/context/docs")
+def get_context_docs(session_id: str = Query("global")):
+    docs = rag.get_docs_for_session(session_id)
+    return {"docs": docs}
+
+# Endpoint para eliminar todos los documentos de una sesión
+@app.delete("/context/docs")
+def delete_all_docs(session_id: str = Query("global")):
+    rag.delete_docs_for_session(session_id)
+    return {"ok": True, "message": f"Todos los documentos de la sesión '{session_id}' han sido eliminados."}
+
+# Endpoint para eliminar un documento específico de una sesión
+@app.delete("/context/docs/{filename}")
+def delete_doc(session_id: str = Query("global"), filename: str = ""):
+    rag.delete_single_doc(session_id, filename)
+    return {"ok": True, "message": f"Documento '{filename}' eliminado de la sesión '{session_id}'."}
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -74,7 +109,7 @@ from fastapi.responses import PlainTextResponse
 async def chat(body: ChatIn):
     session_id = getattr(body, "session_id", None) or "global"
     try:
-        relevant_chunks = rag.query_relevant(body.message, session_id, top_k=4)
+        relevant_chunks = rag.query_relevant(body.message, session_id, top_k=12)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error consultando contexto: {e}")
     context = "\n".join([c["text"] for c in relevant_chunks]) if relevant_chunks else ""

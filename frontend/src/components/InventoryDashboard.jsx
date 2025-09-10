@@ -1,5 +1,10 @@
-import { useEffect, useState } from "react";
-import { listProducts, createProduct, deleteProduct } from "../lib/api";
+import React from "react";
 
 export default function InventoryDashboard() {
-  // Archivo eliminado: funcionalidad eliminada
+  return (
+    <div className="p-6 bg-white rounded-xl shadow text-center text-gray-500">
+      Dashboard principal
+      <div className="mt-2 text-xs text-gray-400">(Aquí irá el resumen o widgets del dashboard)</div>
+    </div>
+  );
+}

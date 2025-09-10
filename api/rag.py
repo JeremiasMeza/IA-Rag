@@ -1,3 +1,38 @@
+# Elimina todos los documentos PDF y su contexto para una sesión
+def delete_docs_for_session(session_id: str):
+    # Eliminar archivos PDF
+    for fname in os.listdir(UPLOAD_DIR):
+        if fname.endswith(".pdf") and fname.startswith(f"{session_id}_"):
+            try:
+                os.remove(os.path.join(UPLOAD_DIR, fname))
+            except Exception as e:
+                print(f"Error eliminando archivo {fname}: {e}")
+    # Eliminar del vector DB
+    if _collection:
+        _collection.delete(where={"client_id": session_id})
+
+# Elimina un documento PDF y su contexto de una sesión
+def delete_single_doc(session_id: str, filename: str):
+    # Eliminar archivo PDF
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    if os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            print(f"Error eliminando archivo {filename}: {e}")
+    # Eliminar del vector DB (por metadatos)
+    if _collection:
+        _collection.delete(where={"client_id": session_id, "source": filename})
+
+# Devuelve la lista de documentos PDF subidos para una sesión
+def get_docs_for_session(session_id: str):
+    docs = []
+    if not os.path.exists(UPLOAD_DIR):
+        return docs
+    for fname in os.listdir(UPLOAD_DIR):
+        if fname.endswith(".pdf") and fname.startswith(f"{session_id}_"):
+            docs.append(fname)
+    return docs
 def list_documents_by_client(client_id: str) -> list:
     if _collection is None:
         return []

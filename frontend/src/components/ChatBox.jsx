@@ -6,7 +6,6 @@ export default function ChatBox({ model, sessionId }) {
   const [msg, setMsg] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-  // ID de sesión efímero; solo vive en memoria del componente
   const endRef = useRef(null);
 
   useEffect(() => {
@@ -14,7 +13,6 @@ export default function ChatBox({ model, sessionId }) {
   }, [messages]);
 
 
-  // Limpiar mensajes al cambiar de sesión
   useEffect(() => {
     setMessages([]);
   }, [sessionId]);
@@ -51,7 +49,7 @@ export default function ChatBox({ model, sessionId }) {
   };
 
   return (
-    <div className="flex flex-col h-[400px] border rounded bg-white">
+    <div className="flex flex-col h-[1000px] border rounded bg-white">
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
         {messages.map((m, idx) => (
           <div
