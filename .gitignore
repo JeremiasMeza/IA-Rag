@@ -1,40 +1,24 @@
 __pycache__/
 *.pyc
-
-# === Python environment / dependencies ===
 venv/
 .venv/
 env/
 *.egg-info/
 pip-wheel-metadata/
-
-# === Cache & build artifacts ===
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 *.log
-
-# === Local environment variables ===
 .env
-
-# === RAG generated data (recreable) ===
 api/storage/uploads/
 api/storage/vectordb/
-
-# === System / editor ===
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
-
-# === Node (frontend already has its own ignore, but root safety) ===
 node_modules/
 dist/
-
-# Prevent committing large model artifacts
 models/
-
-# Backup files
 *.bak
 *.swp
 *.tmp

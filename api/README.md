@@ -7,6 +7,7 @@ Quick start
    C:/path/to/python -m venv .venv ; .\.venv\Scripts\Activate.ps1 ; pip install -r requirements.txt
 
 2. Copy `.env.example` to `.env` and adjust variables (OLLAMA_URL, ADMIN_TOKEN...)
+   Default chat model ahora: `qwen2.5:1.5b` (puedes cambiarlo con MODEL_NAME en `.env`).
 
 3. Run the API with uvicorn:
 

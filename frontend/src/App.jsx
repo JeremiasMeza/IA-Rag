@@ -6,6 +6,7 @@ import ChatBox from "./components/ChatBox";
 import ContextDocsCard from "./components/ContextDocsCard";
 
 const MODELS = [
+  "qwen2.5:1.5b", // nuevo modelo agregado
   "qwen3:8b",
   "deepseek-r1:8b",
   "deepseek-r1:14b",

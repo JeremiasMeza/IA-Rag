@@ -1,8 +1,0 @@
-flowchart TD
-    A[Frontend (React + Vite)] -->|Solicita datos, sube archivos, consulta chat| B[API Backend (FastAPI)]
-    B -->|Procesa archivos, extrae texto| C[Procesamiento de Documentos (pypdf, sentence-transformers)]
-    C -->|Genera embeddings| D[Vector DB (ChromaDB)]
-    D -->|Devuelve resultados relevantes| B
-    B -->|Responde a usuario| A
-    B -->|Guarda/lee metadatos| E[Base de datos (SQLite vía SQLAlchemy)]
-    B -->|Guarda archivos| F[Almacenamiento local (storage/uploads)]

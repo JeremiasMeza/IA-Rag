@@ -16,7 +16,7 @@ import rag
 load_dotenv()
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
-DEFAULT_MODEL = os.getenv("MODEL_NAME", "llama3.1:8b")
+DEFAULT_MODEL = os.getenv("MODEL_NAME", "qwen2.5:1.5b")  # actualizado default
 SYSTEM_PROMPT = (
     "Eres un asistente conversacional. Responde siempre en español, de forma breve y clara. "
     "No muestres tu razonamiento interno ni incluyas etiquetas como <think> o similares. "
