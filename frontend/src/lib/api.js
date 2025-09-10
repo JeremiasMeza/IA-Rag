@@ -3,7 +3,14 @@
 const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 async function _checkResponse(res) {
-  if (res.ok) return res.json().catch(() => ({}));
+  if (res.ok) {
+    const ct = res.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
+      return res.json().catch(() => ({}));
+    } else {
+      return res.text();
+    }
+  }
   const text = await res.text().catch(() => "");
   let msg = `HTTP ${res.status}`;
   try {
@@ -38,3 +45,4 @@ export async function uploadPdf({ file, session_id }) {
   });
   return _checkResponse(r);
 }
+

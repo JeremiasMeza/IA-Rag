@@ -13,6 +13,12 @@ export default function ChatBox({ model, sessionId }) {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+
+  // Limpiar mensajes al cambiar de sesión
+  useEffect(() => {
+    setMessages([]);
+  }, [sessionId]);
+
   const send = async () => {
     if (!msg.trim()) return;
     const userText = msg;
@@ -20,14 +26,19 @@ export default function ChatBox({ model, sessionId }) {
     setMessages((prev) => [...prev, { sender: "user", text: userText }]);
     setLoading(true);
     try {
-      const data = await chat({
+      let data = await chat({
         message: userText,
         model,
         session_id: sessionId,
       });
+      if (typeof data === "string") {
+        data = data.replace(/<think>[\s\S]*?<\/think>/gi, "");
+        const lines = data.split("\n").map(l => l.trim()).filter(Boolean);
+        if (lines.length > 0) data = lines[lines.length - 1];
+      }
       setMessages((prev) => [
         ...prev,
-        { sender: "bot", text: data.reply || JSON.stringify(data) },
+        { sender: "bot", text: data },
       ]);
     } catch (e) {
       setMessages((prev) => [
@@ -53,6 +64,12 @@ export default function ChatBox({ model, sessionId }) {
             {m.meta && <div className="text-xs text-gray-500 mt-1">{m.meta}</div>}
           </div>
         ))}
+        {loading && (
+          <div className="max-w-[80%] p-2 rounded bg-gray-100 self-start flex items-center gap-2 animate-pulse">
+            <span className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
+            <span className="text-gray-500">Pensando...</span>
+          </div>
+        )}
         <div ref={endRef} />
       </div>
       <div className="p-3 border-t flex gap-2">

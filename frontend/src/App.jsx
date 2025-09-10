@@ -1,7 +1,9 @@
 import { useState } from "react";
+
 import ModelPicker from "./components/ModelPicker";
 import UploadPanel from "./components/UploadPanel";
 import ChatBox from "./components/ChatBox";
+import ContextDocsCard from "./components/ContextDocsCard";
 
 const MODELS = [
   "qwen3:8b",
@@ -12,10 +14,15 @@ const MODELS = [
   "gpt-oss:20b"
 ];
 
+
+
+// Siempre usar el contexto global
+const GLOBAL_SESSION_ID = "global";
+
+
 export default function App() {
   const [model, setModel] = useState(MODELS[0]);
-  // Un id de sesión único por usuario/navegador
-  const [sessionId] = useState(() => crypto.randomUUID());
+  const sessionId = GLOBAL_SESSION_ID;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -27,8 +34,9 @@ export default function App() {
         <div className="grid sm:grid-cols-3 gap-3 mb-4">
           <ModelPicker value={model} onChange={setModel} models={MODELS} />
         </div>
-        <UploadPanel sessionId={sessionId} />
-        <ChatBox model={model} sessionId={sessionId} />
+  <ContextDocsCard sessionId={sessionId} model={model} />
+  <UploadPanel sessionId={sessionId} />
+  <ChatBox model={model} sessionId={sessionId} />
       </main>
     </div>
   );

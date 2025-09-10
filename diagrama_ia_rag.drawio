@@ -1,0 +1,56 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="IA-Rag Architecture" id="1">
+    <mxGraphModel dx="1000" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <!-- Frontend -->
+        <mxCell id="2" value="Frontend (React + Vite)\n- ChatBox\n- UploadPanel\n- InventoryDashboard" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="120" width="180" height="100" as="geometry" />
+        </mxCell>
+        <!-- API Backend -->
+        <mxCell id="3" value="API Backend (FastAPI)\n- /upload\n- /chat\n- /inventory" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="320" y="120" width="180" height="100" as="geometry" />
+        </mxCell>
+        <!-- Procesamiento de Documentos -->
+        <mxCell id="4" value="Procesamiento de Documentos\n- pypdf: extrae texto\n- sentence-transformers: embeddings" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="320" y="260" width="180" height="80" as="geometry" />
+        </mxCell>
+        <!-- ChromaDB -->
+        <mxCell id="5" value="ChromaDB\n(Vector DB)\n- Guarda embeddings\n- Búsqueda semántica" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="560" y="260" width="180" height="80" as="geometry" />
+        </mxCell>
+        <!-- Base de datos relacional -->
+        <mxCell id="6" value="Base de datos (SQLite + SQLAlchemy)\n- Metadatos\n- Usuarios\n- Historial" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="320" y="380" width="180" height="80" as="geometry" />
+        </mxCell>
+        <!-- Almacenamiento de archivos -->
+        <mxCell id="7" value="Almacenamiento local\n(storage/uploads)\n- Archivos originales" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="60" y="260" width="180" height="80" as="geometry" />
+        </mxCell>
+        <!-- Flechas -->
+        <mxCell id="8" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;strokeColor=#6c8ebf;" edge="1" parent="1" source="2" target="3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="9" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;strokeColor=#9673a6;" edge="1" parent="1" source="3" target="4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="10" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;strokeColor=#d6b656;" edge="1" parent="1" source="4" target="5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="11" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;strokeColor=#82b366;" edge="1" parent="1" source="5" target="3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="12" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;strokeColor=#9673a6;" edge="1" parent="1" source="3" target="6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="13" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;strokeColor=#9673a6;" edge="1" parent="1" source="3" target="7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="14" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;strokeColor=#6c8ebf;dashed=1;" edge="1" parent="1" source="7" target="3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
