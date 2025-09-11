@@ -15,14 +15,19 @@ def delete_docs_for_session(session_id: str):
 def delete_single_doc(session_id: str, filename: str):
     # Eliminar archivo PDF
     file_path = os.path.join(UPLOAD_DIR, filename)
-    if os.path.exists(file_path):
-        try:
+    try:
+        if os.path.exists(file_path):
             os.remove(file_path)
-        except Exception as e:
-            print(f"Error eliminando archivo {filename}: {e}")
+    except Exception as e:
+        print(f"Error eliminando archivo {filename}: {e}")
     # Eliminar del vector DB (por metadatos)
-    if _collection:
-        _collection.delete(where={"client_id": session_id, "source": filename})
+    try:
+        if _collection:
+            # ChromaDB espera solo un campo en where, usamos 'source' para eliminar el documento específico
+            _collection.delete(where={"source": filename})
+    except Exception as e:
+        print(f"Error eliminando del vector DB {filename}: {e}")
+    return True
 
 # Devuelve la lista de documentos PDF subidos para una sesión
 def get_docs_for_session(session_id: str):
@@ -51,7 +56,7 @@ from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
 from pypdf import PdfReader
 
-EMBED_MODEL = os.getenv("EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+EMBED_MODEL = os.getenv("EMBED_MODEL", "sentence-transformers/all-mpnet-base-v2")
 CHROMA_DIR = os.getenv("CHROMA_DIR", "storage/vectordb")
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "storage/uploads")
 COLLECTION = "docs"
@@ -103,7 +108,7 @@ def pdf_to_text(path: str) -> str:
         return ""
 
 
-def chunk(text: str, size: int = 900, overlap: int = 150) -> list[str]:
+def chunk(text: str, size: int = 400, overlap: int = 100) -> list[str]:
     words = text.split()
     chunks, i = [], 0
     while i < len(words):

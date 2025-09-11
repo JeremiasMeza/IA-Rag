@@ -1,11 +1,12 @@
-
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "./components/Sidebar";
 import Navbar from "./components/Navbar";
 import ModelPicker from "./components/ModelPicker";
 import UploadPanel from "./components/UploadPanel";
 import ChatBox from "./components/ChatBox";
 import ContextDocsCard from "./components/ContextDocsCard";
+import DocumentCardList from "./components/DocumentCardList";
+import PdfPreviewer from "./components/PdfPreviewer";
 import InventoryDashboard from "./components/InventoryDashboard";
 
 const MODELS = [
@@ -30,13 +31,23 @@ export default function App() {
   const [model, setModel] = useState(MODELS[0]);
   const [section, setSection] = useState("Dashboard");
   const sessionId = GLOBAL_SESSION_ID;
+  const [selectedDoc, setSelectedDoc] = useState(null);
+  // Estado para forzar recarga de documentos (debe estar fuera del condicional)
+  const [docsReloadKey, setDocsReloadKey] = useState(0);
+  const reloadDocs = () => setDocsReloadKey((k) => k + 1);
 
+  // Resetear selectedDoc al cambiar de sección
+  useEffect(() => {
+    if (section !== "Documentos" && selectedDoc !== null) {
+      setSelectedDoc(null);
+    }
+  }, [section]);
   // Renderizado dinámico de contenido
   let content = null;
   if (section === "Dashboard") {
     content = (
       <div className="space-y-4">
-        <InventoryDashboard />
+        <InventoryDashboard model={model} sessionId={sessionId} />
       </div>
     );
   } else if (section === "Modelo IA") {
@@ -48,8 +59,8 @@ export default function App() {
   } else if (section === "Documentos") {
     content = (
       <div className="space-y-4">
-        <ContextDocsCard sessionId={sessionId} model={model} />
-        <UploadPanel sessionId={sessionId} />
+        <DocumentCardList sessionId={sessionId} reloadKey={docsReloadKey} />
+        <UploadPanel sessionId={sessionId} onUpload={reloadDocs} />
       </div>
     );
   } else if (section === "Chat") {

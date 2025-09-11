@@ -1,3 +1,29 @@
+## Prompt estructurado (nuevo)
+
+El endpoint `/chat` ahora utiliza un prompt de sistema estructurado que instruye al modelo a devolver SIEMPRE un JSON con la siguiente forma:
+
+```
+{
+   "answer": "<texto con markdown básico y citas [src:ID|p]>",
+   "follow_up": ["pregunta_corta_1", "pregunta_corta_2"],
+   "used_sources": [{"id":"ctx-00","source":"archivo.pdf","page":1}],
+   "confidence": "LOW|MEDIUM|HIGH"
+}
+```
+
+Parámetros opcionales que puede enviar el cliente en el body POST:
+
+| Campo | Descripción | Valores / Ejemplo | Default |
+|-------|-------------|-------------------|---------|
+| answer_mode | Estilo de salida | `breve` | `breve` |
+| locale | Localización idioma | `es-AR` | `es-AR` |
+| max_tokens | Límite lógico de generación | `400` | 400 |
+| score_threshold | Umbral mínimo de score (filtro lógico) | `0.0` | 0.0 |
+
+Los `context_chunks` se construyen internamente y se pasan como JSON al modelo: cada chunk incluye `id`, `source`, `page`, `text`, `score`.
+
+Si el modelo no produce un JSON válido, el servidor hace un fallback generando un JSON mínimo con `answer` y `confidence` = LOW.
+
 Local RAG API (Ollama + Chroma)
 
 Quick start

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { uploadPdf } from "../lib/api";
 
-export default function UploadPanel({ sessionId }) {
+export default function UploadPanel({ sessionId, onUpload }) {
   const [file, setFile] = useState(null);
   const [info, setInfo] = useState("");
 
@@ -10,6 +10,7 @@ export default function UploadPanel({ sessionId }) {
     try {
       const data = await uploadPdf({ file, session_id: sessionId });
       setInfo(`PDF subido. Caracteres extraídos: ${data.chars}`);
+      if (onUpload) onUpload();
     } catch (e) {
       setInfo("Error: " + e.message);
     }

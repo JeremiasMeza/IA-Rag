@@ -14,7 +14,12 @@ export default function ChatBox({ model, sessionId }) {
 
 
   useEffect(() => {
-    setMessages([]);
+    setMessages([
+      {
+        sender: "bot",
+        text: "Hola, soy tu asistente virtual. ¿En qué puedo ayudarte?"
+      }
+    ]);
   }, [sessionId]);
 
   const send = async () => {
@@ -24,20 +29,25 @@ export default function ChatBox({ model, sessionId }) {
     setMessages((prev) => [...prev, { sender: "user", text: userText }]);
     setLoading(true);
     try {
-      let data = await chat({
+      let raw = await chat({
         message: userText,
         model,
         session_id: sessionId,
+        answer_mode: "breve",
+        locale: "es-AR",
+        max_tokens: 400,
+        score_threshold: 0.0,
       });
-      if (typeof data === "string") {
-        data = data.replace(/<think>[\s\S]*?<\/think>/gi, "");
-        const lines = data.split("\n").map(l => l.trim()).filter(Boolean);
-        if (lines.length > 0) data = lines[lines.length - 1];
-      }
-      setMessages((prev) => [
-        ...prev,
-        { sender: "bot", text: data },
-      ]);
+      let displayText = raw;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && parsed.answer) {
+          displayText = parsed.answer;
+        }
+      } catch (_) {}
+      // Eliminar cualquier etiqueta <think>...</think> de la respuesta
+      displayText = displayText.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+      setMessages((prev) => [...prev, { sender: "bot", text: displayText }]);
     } catch (e) {
       setMessages((prev) => [
         ...prev,

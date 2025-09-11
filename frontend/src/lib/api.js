@@ -1,6 +1,6 @@
 
 // API helper para el frontend
-const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+export const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 async function _checkResponse(res) {
   if (res.ok) {
@@ -23,9 +23,13 @@ async function _checkResponse(res) {
   throw new Error(msg);
 }
 
-export async function chat({ message, model, session_id } = {}) {
+export async function chat({ message, model, session_id, answer_mode, locale, max_tokens, score_threshold } = {}) {
   const body = { message, session_id };
   if (model) body.model = model;
+  if (answer_mode) body.answer_mode = answer_mode;
+  if (locale) body.locale = locale;
+  if (max_tokens) body.max_tokens = max_tokens;
+  if (score_threshold !== undefined) body.score_threshold = score_threshold;
   const r = await fetch(`${API}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
