@@ -1,3 +1,27 @@
+// Obtener los modelos instalados desde el backend
+export async function getModels() {
+  const r = await fetch(`${API}/models`);
+  const data = await r.json();
+  return data.models || [];
+}
+
+// Obtener el modelo seleccionado globalmente
+export async function getSelectedModel() {
+  const r = await fetch(`${API}/selected_model`);
+  const data = await r.json();
+  return data.selected_model;
+}
+
+// Actualizar el modelo seleccionado globalmente
+export async function setSelectedModel(model) {
+  const r = await fetch(`${API}/selected_model`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model }),
+  });
+  const data = await r.json();
+  return data.selected_model;
+}
 
 // API helper para el frontend
 export const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";

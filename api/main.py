@@ -1,13 +1,14 @@
 
+
+
 import os
 import uuid
 import shutil
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+import httpx
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Response, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
-import httpx
-
 import rag
 from fastapi.staticfiles import StaticFiles
 
@@ -16,15 +17,126 @@ load_dotenv()
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 DEFAULT_MODEL = os.getenv("MODEL_NAME", "qwen2.5:1.5b")  # actualizado default
 
+app = FastAPI(title="Chat PDF + Ollama")
+
+# Precalentar modelo seleccionado al iniciar el backend (en background)
+import asyncio
+
+# --- Keep Alive del modelo ---
+MODEL_KEEPALIVE_ENABLED = os.getenv("MODEL_KEEPALIVE_ENABLED", "true").lower() in ("1", "true", "yes")
+MODEL_KEEPALIVE_INTERVAL = int(os.getenv("MODEL_KEEPALIVE_INTERVAL", "300"))  # segundos (default 5 min)
+
+async def _ping_model(model: str):
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            await client.post(f"{OLLAMA_URL}/api/chat", json={
+                "model": model,
+                "messages": [{"role": "user", "content": "ping"}]
+            })
+    except Exception as e:
+        print(f"[KEEPALIVE] Falló ping a {model}: {e}")
+
+async def _keepalive_loop():
+    # Lee siempre el modelo actual (por si cambió)
+    while True:
+        try:
+            model_path = os.path.join(os.path.dirname(__file__), "model_selected.txt")
+            if os.path.exists(model_path):
+                with open(model_path, "r", encoding="utf-8") as f:
+                    model = f.read().strip()
+            else:
+                model = DEFAULT_MODEL
+            await _ping_model(model)
+        except Exception as e:
+            print(f"[KEEPALIVE] Error general: {e}")
+        await asyncio.sleep(MODEL_KEEPALIVE_INTERVAL)
+
+def warmup_selected_model_background():
+    async def warmup():
+        try:
+            model_path = os.path.join(os.path.dirname(__file__), "model_selected.txt")
+            if os.path.exists(model_path):
+                with open(model_path, "r", encoding="utf-8") as f:
+                    model = f.read().strip()
+            else:
+                model = DEFAULT_MODEL
+            async with httpx.AsyncClient(timeout=60) as client:
+                await client.post(f"{OLLAMA_URL}/api/chat", json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": "Hola"}]
+                })
+        except Exception as e:
+            print(f"[WARN] No se pudo precalentar el modelo {model}: {e}")
+    try:
+        loop = asyncio.get_event_loop()
+        loop.create_task(warmup())
+    except RuntimeError:
+        # Si no hay loop, ignora (esto solo ocurre en contextos muy raros)
+        pass
+
+@app.on_event("startup")
+def on_startup():
+    warmup_selected_model_background()
+    if MODEL_KEEPALIVE_ENABLED:
+        try:
+            loop = asyncio.get_event_loop()
+            loop.create_task(_keepalive_loop())
+            print(f"[KEEPALIVE] Activado cada {MODEL_KEEPALIVE_INTERVAL}s")
+        except RuntimeError:
+            print("[KEEPALIVE] No se pudo iniciar la tarea background")
+
+
+# Registrar routers
+from routers import model as model_router
+app.include_router(model_router.router)
+
+# Endpoint para obtener el modelo seleccionado globalmente
+@app.get("/selected_model")
+def get_selected_model():
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "model_selected.txt"), "r", encoding="utf-8") as f:
+            model = f.read().strip()
+        return {"selected_model": model}
+    except Exception as e:
+        return {"selected_model": DEFAULT_MODEL, "error": str(e)}
+
+# Endpoint para actualizar el modelo seleccionado globalmente
+@app.post("/selected_model")
+def set_selected_model(model: str = Body(..., embed=True)):
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "model_selected.txt"), "w", encoding="utf-8") as f:
+            f.write(model.strip())
+        return {"ok": True, "selected_model": model.strip()}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+# Endpoint para listar modelos descargados en Ollama
+@app.get("/models")
+async def list_available_models():
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(f"{OLLAMA_URL}/api/tags")
+            r.raise_for_status()
+            data = r.json()
+        # Extraer solo el nombre del modelo descargado
+        models = [m["name"] for m in data.get("models", [])]
+        return {"models": models}
+    except Exception as e:
+        return Response(content=f"Error consultando modelos: {e}", status_code=500)
+
+
 
 # Prompt configurable desde .env o variable de entorno, o valor por defecto editable aquí
+
 CUSTOM_SYSTEM_PROMPT = os.getenv(
     "CUSTOM_SYSTEM_PROMPT",
     "Eres un asistente conversacional, amable y cortés. Si la pregunta del usuario se relaciona con los documentos o el contexto proporcionado, utilízalo para dar la mejor respuesta posible en español. Si la pregunta es de saludo, cortesía o conversación general, responde de manera natural y humana, sin forzar información de los documentos. Si no hay suficiente información para una pregunta específica, dilo claramente. Responde siempre de forma clara, directa y amigable. IMPORTANTE: Entrega únicamente la respuesta final al usuario, sin explicaciones, sin etiquetas de procesamiento, sin texto adicional, sin comentarios ni pasos intermedios. No incluyas nada fuera de la respuesta solicitada. PROHIBIDO: No incluyas ningún texto de razonamiento, explicación, ni etiquetas como <think>, <explain>, <debug> o similares. Solo responde con el texto final solicitado, sin nada adicional."
 )
 
 
-app = FastAPI(title="Chat PDF + Ollama")
+# Servir archivos PDF subidos como estáticos
+UPLOAD_DIR = os.path.abspath(rag.UPLOAD_DIR)
+app.mount("/storage/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # Servir archivos PDF subidos como estáticos
 UPLOAD_DIR = os.path.abspath(rag.UPLOAD_DIR)
@@ -167,7 +279,7 @@ async def chat(body: ChatIn):
         # Respuesta interactiva, sin markdown ni mención a IA
         respuestas = [
             "¡Hola! Estoy muy bien, gracias por preguntar. ¿En qué puedo ayudarte hoy?",
-            "¡Hola! Todo bien por aquí. ¿Sobre qué tema te gustaría conversar o necesitas ayuda?",
+            "¡Hola! ¿Sobre qué tema te gustaría conversar o necesitas ayuda?",
             "¡Hola! ¿En qué puedo ayudarte? Si tienes alguna consulta, dime sin problema.",
         ]
         import random
@@ -223,7 +335,7 @@ async def chat(body: ChatIn):
 
     system_prompt = (
         "Eres un asistente virtual conversacional en español, amable y profesional. "
-        "Usa SOLO el contexto si contiene la respuesta. Si no está, di brevemente que no aparece en los documentos y sugiere pedir otro aspecto (servicios, clientes, certificaciones, contacto, historia). "
+        "Usa SOLO el contexto si contiene la respuesta. Si no está, di brevemente que no aparece en los documentos y sugiere pedir otro aspecto. "
         "No inventes datos. Responde en texto plano (sin markdown, sin listas con guiones, sin encabezados). "
         "No añadas prefijos como 'Respuesta final:' ni plantillas ni corchetes. Solo da la respuesta directamente."
     )

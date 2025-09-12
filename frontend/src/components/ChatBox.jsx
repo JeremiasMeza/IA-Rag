@@ -1,10 +1,9 @@
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { chat } from "../lib/api";
 
-export default function ChatBox({ model, sessionId }) {
+export default function ChatBox({ model, sessionId, messages, setMessages }) {
   const [msg, setMsg] = useState("");
-  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const endRef = useRef(null);
 
@@ -12,15 +11,18 @@ export default function ChatBox({ model, sessionId }) {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-
+  // Inicializar mensajes solo si están vacíos
   useEffect(() => {
-    setMessages([
-      {
-        sender: "bot",
-        text: "Hola, soy tu asistente virtual. ¿En qué puedo ayudarte?"
-      }
-    ]);
-  }, [sessionId]);
+    if (!messages) {
+      setMessages([
+        {
+          sender: "bot",
+          text: "Hola, soy tu asistente virtual. ¿En qué puedo ayudarte?"
+        }
+      ]);
+    }
+    // eslint-disable-next-line
+  }, [sessionId, messages, setMessages]);
 
   const send = async () => {
     if (!msg.trim()) return;
@@ -61,7 +63,7 @@ export default function ChatBox({ model, sessionId }) {
   return (
     <div className="flex flex-col h-[1000px] border rounded bg-white">
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
-        {messages.map((m, idx) => (
+        {messages && messages.map((m, idx) => (
           <div
             key={idx}
             className={`max-w-[80%] p-2 rounded ${

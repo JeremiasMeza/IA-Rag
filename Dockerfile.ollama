@@ -1,0 +1,8 @@
+# Utiliza la imagen oficial de Ollama
+FROM ollama/ollama:latest
+# Puedes agregar comandos para descargar modelos aquí si lo deseas
+# Ejemplo: RUN ollama pull llama2
+EXPOSE 11434
+
+# Copia los modelos locales a la imagen
+COPY ollama_models/ /root/.ollama/

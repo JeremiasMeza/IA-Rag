@@ -1,3 +1,11 @@
+import os
+import traceback
+import chromadb
+from chromadb.config import Settings
+from sentence_transformers import SentenceTransformer
+from pypdf import PdfReader
+
+
 # Elimina todos los documentos PDF y su contexto para una sesión
 def delete_docs_for_session(session_id: str):
     # Eliminar archivos PDF
@@ -38,23 +46,7 @@ def get_docs_for_session(session_id: str):
         if fname.endswith(".pdf") and fname.startswith(f"{session_id}_"):
             docs.append(fname)
     return docs
-def list_documents_by_client(client_id: str) -> list:
-    if _collection is None:
-        return []
-    results = _collection.get(where={"client_id": client_id})
-    docs = set()
-    for meta in results.get("metadatas", []):
-        if meta and "original_filename" in meta:
-            docs.add(meta["original_filename"])
-        elif meta and "source" in meta:
-            docs.add(meta["source"])
-    return list(docs)
-import os
-import traceback
-import chromadb
-from chromadb.config import Settings
-from sentence_transformers import SentenceTransformer
-from pypdf import PdfReader
+
 
 EMBED_MODEL = os.getenv("EMBED_MODEL", "sentence-transformers/all-mpnet-base-v2")
 CHROMA_DIR = os.getenv("CHROMA_DIR", "storage/vectordb")
@@ -109,13 +101,20 @@ def pdf_to_text(path: str) -> str:
 
 
 def chunk(text: str, size: int = 400, overlap: int = 100) -> list[str]:
+    # Limpieza básica: eliminar saltos de línea y espacios extra
+    import re
+    text = re.sub(r'\s+', ' ', text.replace('\n', ' ')).strip()
     words = text.split()
     chunks, i = [], 0
     while i < len(words):
         part = words[i:i+size]
-        chunks.append(" ".join(part))
+        fragment = ' '.join(part)
+        # Limpieza adicional: quitar espacios al inicio/fin y caracteres raros
+        fragment = fragment.strip()
+        chunks.append(fragment)
         i += size - overlap
-    return chunks
+    # Eliminar fragmentos vacíos o muy pequeños
+    return [c for c in chunks if len(c.split()) > 10]
 
 
 def add_document(file_path: str, client_id: str, original_filename: str = None) -> int:
@@ -129,7 +128,8 @@ def add_document(file_path: str, client_id: str, original_filename: str = None) 
             print(f"Warning: fallo leyendo archivo de texto {file_path}:\n", traceback.format_exc())
             text = ""
 
-    pieces = chunk(text)
+    # Fragmentar con tamaño y solapamiento óptimos
+    pieces = chunk(text, size=150, overlap=30)
     if not pieces:
         return 0
 
@@ -166,10 +166,3 @@ def query_relevant(question: str, client_id: str, top_k: int = 4) -> list[dict]:
     return out
 
 
-def delete_by_client(client_id: str) -> None:
-    _collection.delete(where={"client_id": client_id})
-
-
-def delete_all() -> None:
-    _client.delete_collection(COLLECTION)
-    _client.get_or_create_collection(COLLECTION, metadata={"hnsw:space": "cosine"})

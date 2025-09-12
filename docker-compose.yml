@@ -1,0 +1,34 @@
+version: '3.8'
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    volumes:
+      - ./api/storage:/app/storage
+      - ./api/model_selected.txt:/app/model_selected.txt
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+    ports:
+      - "8000:8000"
+    depends_on:
+      - ollama
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  ollama:
+    build:
+      context: .
+      dockerfile: Dockerfile.ollama
+    ports:
+      - "11434:11434"
+    # Puedes agregar volumes para modelos persistentes si lo deseas
+    # volumes:
+    #   - ./ollama_data:/root/.ollama
